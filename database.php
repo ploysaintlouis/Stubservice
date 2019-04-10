@@ -1,5 +1,5 @@
 <?php
-defined('BASEPATH') OR exit('No direct script access allowed');
+defined('BASEPATH');
 
 /*
 | -------------------------------------------------------------------
@@ -70,31 +70,18 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 | The $query_builder variables lets you determine whether or not to load
 | the query builder class.
 */
-$active_group = 'default';
-$query_builder = TRUE;
+$dsn	= 'Driver={SQL Server Native Client 11.0};server=107-NANNAPHAT\SQL2018;Database=test';
+//$dsn=	 'Driver={SQL Server Native Client 11.0};server=DESKTOP-71LOP0E\SQLEXPRESS;Database=test';
+$username = 'sa';
+$password = 'password';	
 
-$db['default'] = array(
-	//'dsn'	=> 'Driver={SQL Server Native Client 11.0};server=107-NANNAPHAT\SQL2018;Database=test',
-	//hostname' => '107-NANNAPHAT\SQL2018',
+$objConnect = odbc_connect($dsn,$username,$password);
+if($objConnect)
+{
+	require_once('ChangeAPI.php');
+}else{
+	echo "Database Connect Failed.";
 
-	'dsn'	=> 'Driver={SQL Server Native Client 11.0};server=DESKTOP-71LOP0E\SQLEXPRESS;Database=test',
-	'hostname' => 'DESKTOP-71LOP0E\SQLEXPRESS',
-	
-	'username' => 'sa',
-	'password' => 'password',	
-	'database' => 'test',
-	'dbdriver' => 'odbc',
-	'dbprefix' => '',
-	'pconnect' => FALSE,
-	'db_debug' => '',
-	'cache_on' => FALSE,
-	'cachedir' => '',
-	'char_set' => 'utf8',
-	'dbcollat' => 'utf8_general_ci',
-	'swap_pre' => '',
-	'encrypt' => FALSE,
-	'compress' => FALSE,
-	'stricton' => FALSE,
-	'failover' => array(),
-	'save_queries' => TRUE
-);
+}
+//odbc_close($objConnect);
+?>
