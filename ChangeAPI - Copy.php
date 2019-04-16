@@ -2,457 +2,293 @@
 //defined('BASEPATH') OR exit('No direct script access allowed');
 header("Content-Type:application/json");
 $data = json_decode(file_get_contents('php://input'), true);
-include('change_func.php');
-//echo json_encode($data);
+echo json_encode($data);
 //echo $data['changeRequestInfo[functionNo]'];
 $functionNo = $data['changeRequestInfo[functionNo]'];	//functionname = FR01'
 $functionVersion = $data['changeRequestInfo[functionVersion]'];	//version V.1
 $projectId = $data['projectInfo'];
+$functionDescription = $data['FRHeader['.$functionNo.'][functionDesc]'];
 
-//echo $functionNo;
-$dsn	= 'Driver={SQL Server Native Client 11.0};server=107-NANNAPHAT\SQL2018;Database=test';
-//$dsn=	 'Driver={SQL Server Native Client 11.0};server=DESKTOP-71LOP0E\SQLEXPRESS;Database=test';
-$username = 'sa';
-$password = 'password';	
+require_once('database.php');
+include('change_func.php');
+include('random.php');
 
-$objConnect = odbc_connect($dsn,$username,$password);
-if($objConnect)
-{
-	$strsql = "SELECT * FROM M_USERS ";
+	$strsql = "SELECT * FROM m_users  ";
 	$objExec = odbc_exec($objConnect, $strsql) or die ("Error Execute [".$strsql."]");
 	$USER = odbc_fetch_array($objExec);
-	
-		//หา จำนวนของ คำขอ change ที่ relate DB เพื่อรับค่า
-		$strsql = "SELECT * FROM T_TEMP_CHANGE_LIST a,M_FN_REQ_DETAIL b
-				where b.functionNo = '$functionNo'
-				and a.functionVersion = '$functionVersion' 
-				and a.dataId = b.dataId
-				and a.functionId  = b.functionId
-				and a.functionVersion = b.functionVersion
-				and (b.refTableName is not null or b.refTableName = ' ')
-				and (b.refColumnName is not null or b.refColumnName = ' ')
-				and b.schemaVersionId is not null
-				and a.confirmflag = '1' 
-				and b.activeflag = '1'
-				and b.projectId = '$projectId' 
-				";
-		//echo $strsql;
-		/*
-		$strsql = "SELECT * FROM T_TEMP_CHANGE_LIST a,M_FN_REQ_DETAIL b
-				where b.functionNo = '$functionNo'
-				and a.functionVersion = '$functionVersion' 
-				and a.dataId = b.dataId
-				and a.functionId  = b.functionId
-				and a.functionVersion = b.functionVersion
-				and (b.refTableName is not null or b.refTableName = ' ')
-				and (b.refColumnName is not null or b.refColumnName = ' ')
-				and b.schemaVersionId is not null
-				and b.schemaVersionId is null
-				and a.confirmflag = '1' 
-				and b.projectId = '$projectId' 
-				";		
-*/
-	$objExec = odbc_exec($objConnect, $strsql) or die ("Error Execute [".$strsql."]");
-	$num_row = 0;
+	//echo $USER['username'];
+	$username = $USER['username'];
+	//หา FR id
+	$strsql = searchFRId($functionNo,$functionVersion,$projectId);
+	$objExec = odbc_exec($objConnect, $strsql) or die ("Error Execute [".$strsql."]");	
+	$searchFRId = odbc_fetch_array($objExec);
+	$functionId = $searchFRId['functionId'];
+
+	//หา จำนวนของ คำขอ change เพื่อรับค่า
+	$strsql = searchNumChange($functionId,$functionVersion);
+	$objExec = odbc_exec($objConnect, $strsql) or die ("Error Execute [".$strsql."]");	
+	$num_row = 1;
 	$row = odbc_num_rows($objExec);
+	//$ResultNumChange = odbc_fetch_row($objExec);
+	//echo $ResultNumChange['CType'];
 	//echo $row;
-	while($num_row < $row)
-	{
-		$currentDateTime = date('Y-m-d H:i:s');
-
-		//รับค่า
-		$changeType[$num_row]= rtrim($data['changeRequestInfo[inputs]['.$num_row.'][changeType]']);
-		$dataName[$num_row]= rtrim($data['changeRequestInfo[inputs]['.$num_row.'][dataName]']);
-		$typeData[$num_row]= rtrim($data['changeRequestInfo[inputs]['.$num_row.'][typeData]']);
-		$dataId[$num_row]= rtrim($data['changeRequestInfo[inputs]['.$num_row.'][dataId]']);
-		$dataType[$num_row]= rtrim($data['changeRequestInfo[inputs]['.$num_row.'][dataType]']);
-		$dataLength[$num_row]= rtrim($data['changeRequestInfo[inputs]['.$num_row.'][dataLength]']);
-		$scale[$num_row]= rtrim($data['changeRequestInfo[inputs]['.$num_row.'][scale]']);
-		$unique[$num_row]= rtrim($data['changeRequestInfo[inputs]['.$num_row.'][unique]']);
-		$notNull[$num_row]= rtrim($data['changeRequestInfo[inputs]['.$num_row.'][notNull]']);
-		$default[$num_row]= rtrim($data['changeRequestInfo[inputs]['.$num_row.'][default]']);
-		$min[$num_row]= rtrim($data['changeRequestInfo[inputs]['.$num_row.'][min]']);
-		$max[$num_row]= rtrim($data['changeRequestInfo[inputs]['.$num_row.'][max]']);
-		
-		if ($data['changeRequestInfo[inputs]['.$num_row.'][tableName]'] == null){
-			$tableName[$num_row] = '00';
-		}else{
-			$tableName[$num_row]= rtrim($data['changeRequestInfo[inputs]['.$num_row.'][tableName]']);
-		}
-		if ($data['changeRequestInfo[inputs]['.$num_row.'][columnName]'] == null){
-			$columnName[$num_row] = '00';
-		}else{
-			$columnName[$num_row]= rtrim($data['changeRequestInfo[inputs]['.$num_row.'][columnName]']);
-		}
-		$modifyFlag[$num_row]= rtrim($data['changeRequestInfo[inputs]['.$num_row.'][modifyFlag]']);
-
-		//echo $tableName[$num_row];
-		
-		// หา impact ของ functional requirement จากการ change ที่ relate DB
-		if (($tableName[$num_row] != '00') and ($columnName[$num_row] != '00')){
-				$strsql = "SELECT functionId,functionVersion,dataType FROM M_FN_REQ_DETAIL
-				where refTableName = '$tableName[$num_row]'
-				and refColumnName = '$columnName[$num_row]'
-				and schemaVersionId is not null
-				and activeflag = '1'
-				and projectId = '$projectId' 
-				";
-				//echo $strsql;	
-				$objExec = odbc_exec($objConnect, $strsql) or die ("Error Execute [".$strsql."]");
-
-				while($ResultFR = odbc_fetch_array($objExec)) //เอาค่าที่เอ็กซ์คิวเก็บไว้เป็น Array
-				{
-					$ResultFRfunctionVersion= $ResultFR['functionVersion'];
-					$ResultFRfunctionId= $ResultFR['functionId'];
-					$ResultFRdataType = $ResultFR['dataType'];
-				} 
-				//echo $ResultFRdataType;
-			//ต้องแสดง FR ที่กระทบ
-		
-			//หา TC ที่สัมพันธ์กับ FR ข้างบน จาก RTM
-			$strsql = "SELECT a.testCaseId,b.testCaseNo from M_RTM_VERSION a,M_TESTCASE_HEADER b
-			where a.testCaseId = b.testCaseId
-			and a.testCaseversion = b.testcaseVersion
-			and a.projectId = b.projectId
-			and a.functionId = '$ResultFRfunctionId'
-			and a.functionVersion = '$ResultFRfunctionVersion'
-			and a.activeflag = '1'
-			and a.projectId = '$projectId' 	"	;	
-
-				$objExec = odbc_exec($objConnect, $strsql) or die ("Error Execute [".$strsql."]");
-				$ResultTC = odbc_fetch_array($objExec);
-				$ResultTCtestCaseNo = $ResultTC['testCaseNo'];
-				$ResultTCtestCaseId = $ResultTC['testCaseId'];
-				$changeType[$num_row] = rtrim($changeType[$num_row]);  //ตัดช่องว่างทางด้านขวาออก
-
-				if ($changeType[$num_row] == 'edit'){
-					$strsql = "SELECT a.testCaseId,a.testcaseVersion,a.typeData,a.refdataId,a.refdataName,a.testData,
-					b.testCaseDescription,b.expectedResult
-					FROM M_TESTCASE_DETAIL a,M_TESTCASE_HEADER b
-					WHERE a.testCaseNo = '$ResultTCtestCaseNo'
-					AND a.refdataId = '$dataId[$num_row]'
-					AND a.testcaseVersion = '$ResultFRfunctionVersion'
-					AND a.activeflag = '1'
-					AND a.testCaseNo = b.testCaseNo
-					AND a.testcaseVersion = b.testcaseVersion "	;	
-			
-					//echo $strsql;
-					$objExec = odbc_exec($objConnect, $strsql) or die ("Error Execute [".$strsql."]");
-					$ImpactTC = odbc_fetch_array($objExec);
-
-					$ImpactTC['testData'] = rtrim($ImpactTC['testData']);  //ตัดช่องว่างทางด้านขวาออก
-					//echo $ImpactTC['testData'];
-					$length_testdata = strlen($ImpactTC['testData']);
-//echo $length_testdata;
-					$dataLength[$num_row] = rtrim($dataLength[$num_row]);  //ตัดช่องว่างทางด้านขวาออก
-					
-					//ส่งค่า TC ที่ปรับปรุงไปยัง json
-					if ($length_testdata >= $dataLength[$num_row]){  //testdate ต้องทำการแก้ไข
-						//HEADER
-						$returnData['testCaseNo'] = $ResultTCtestCaseNo;
-						$returnData['ChangeType'] = 'edit';
-						$returnData['testcaseVersion'] = $ImpactTC['testcaseVersion']+1;
-						$returnData['testCaseDescription'] = rtrim($ImpactTC['testCaseDescription']);
-						$returnData['expectedResult'] = $ImpactTC['expectedResult'];
-						//echo $returnData['testcaseVersion'];
-
-						//DETAIL  CHANGE DATANAME
-						if( $ImpactTC['refdataName'] != $data['changeRequestInfo[inputs]['.$num_row.'][dataName]'] ){
-							$returnData['refdataName'] = $data['changeRequestInfo[inputs]['.$num_row.'][dataName]'];
-						}
-						else{
-							$returnData['refdataName'] = $ImpactTC['refdataName'];
-						}
-					//echo $ResultFR['dataType'];
-						//DETAIL  edit testdata
-						if ($dataType[$num_row] == NULL){
-							$dataType[$num_row] = $ResultFRdataType;
-						} 
-						
-						if((rtrim($dataType[$num_row]) == 'int') or (rtrim($dataType[$num_row]) == 'INT')){
-							$returnData['testData'] = randInt($min[$num_row],$max[$num_row]);
-						}
-						if((rtrim($dataType[$num_row]) == 'char') || (rtrim($dataType[$num_row]) == 'CHAR')
-						||(rtrim($dataType[$num_row]) == 'varchar') || (rtrim($dataType[$num_row]) == 'VARCHAR')){
-							$returnData['testData'] = randChar();
-						}												
-					}
-					else{	//ไม่กระทบ ไม่ต้องทำการแก้ไข
-						$returnData = null ;
-					}
-				}
-		}
-		else if ($changeType[$num_row] == 'edit'){
-				//หา FR version ของ FR ที่เปลี่ยนแปลง
-				$strsql = "SELECT * FROM T_TEMP_CHANGE_LIST a,M_FN_REQ_DETAIL b
-				where b.functionNo = '$functionNo'
-				and a.functionVersion = '$functionVersion' 
-				and a.dataId = b.dataId
-				and a.functionId  = b.functionId
-				and a.functionVersion = b.functionVersion
-				and b.schemaVersionId is null
-				and a.confirmflag = '1' 
-				and b.projectId = '$projectId' 
-				";					
-				$objExec = odbc_exec($objConnect, $strsql) or die ("Error Execute [".$strsql."]");
-				//echo $strsql;
-				while($ResultFR_NOT = odbc_fetch_array($objExec)) //เอาค่าที่เอ็กซ์คิวเก็บไว้เป็น Array
-				{
-					$ResultFR_NOTfunctionVersion= $ResultFR_NOT['functionVersion'];
-					$ResultFR_NOTfunctionId= $ResultFR_NOT['functionId'];
-					//echo $ResultFR_NOTfunctionVersion;
-				} 
-
-				//หา TC ที่สัมพันธ์กับ FR ข้างบน จาก RTM
-				$strsql = "SELECT a.testCaseId,b.testCaseNo from M_RTM_VERSION a,M_TESTCASE_HEADER b
-				where a.testCaseId = b.testCaseId
-				and a.testCaseversion = b.testcaseVersion
-				and a.projectId = b.projectId
-				and a.activeflag = '1'
-				and a.projectId = '$projectId' 	
-				AND a.functionVersion = '$ResultFR_NOTfunctionVersion
-				AND a.functionId = '$ResultFR_NOTfunctionId' "	;		
-echo $strsql;
-				$objExec = odbc_exec($objConnect, $strsql) or die ("Error Execute [".$strsql."]");
-				$ResultTC_NOT = odbc_fetch_array($objExec);
-
-				$ResultTC_NOTtestCaseNo = $ResultTC_NOT['testCaseNo'];
-				$ResultTC_NOTtestCaseId = $ResultTC_NOT['testCaseId'];
-				//echo $ResultTC_NOT['testCaseNo'];
-				//echo strlen($ResultTC_NOT['testCaseId']);  //นับความยาวข้อมูล
-				$changeType[$num_row] = rtrim($changeType[$num_row]);  //ตัดช่องว่างทางด้านขวาออก
-				//echo strlen($changeType[$num_row]);
-				//หาว่ากระทบใน TC นั้นหรือไม่
-				if ($changeType[$num_row] == 'edit'){
-					$strsql = "SELECT a.testCaseId,a.testcaseVersion,a.typeData,a.refdataId,a.refdataName,a.testData,
-					b.testCaseDescription,b.expectedResult
-					FROM M_TESTCASE_DETAIL a,M_TESTCASE_HEADER b
-					WHERE a.testCaseNo = '$ResultTC_NOTtestCaseNo'
-					AND a.refdataId = '$dataId[$num_row]'
-					AND a.testcaseVersion = '$ResultFR_NOTfunctionVersion'
-					AND a.activeflag = '1' 
-					AND b.activeflag = '1'
-					AND a.testCaseNo = b.testCaseNo
-					AND a.testcaseVersion = b.testcaseVersion "	;	
-			
-					//echo $strsql;
-					$objExec = odbc_exec($objConnect, $strsql) or die ("Error Execute [".$strsql."]");
-					$ImpactTC_NOT = odbc_fetch_array($objExec);
-
-					$ImpactTC_NOT['testData'] = rtrim($ImpactTC_NOT['testData']);  //ตัดช่องว่างทางด้านขวาออก
-					echo $ImpactTC_NOT['testData'];
-					$length_testdata = strlen($ImpactTC_NOT['testData']);
-//echo $length_testdata;
-					$dataLength[$num_row] = rtrim($dataLength[$num_row]);  //ตัดช่องว่างทางด้านขวาออก
-
-					if ($length_testdata >= $dataLength[$num_row]){  //testdate ต้องทำการแก้ไข
-						$returnData['testCaseNo'] = $ResultTC_NOTtestCaseNo;
-					}
-					else{	//ไม่กระทบ ไม่ต้องทำการแก้ไข
-						$returnData['testCaseNo'] = $ResultTC_NOTtestCaseNo;
-					}
-
-				}
-			}else if($changeType[$num_row] == 'add'){
-					//หา FR version ของ FR ที่เปลี่ยนแปลง
-					$strsql = "SELECT * FROM M_FN_REQ_HEADER
-							where functionNo = '$functionNo'
-							and functionVersion = '$functionVersion' 
-							and projectId = '$projectId' 
-							and activeflag = '1'
-							";					
-					$objExec = odbc_exec($objConnect, $strsql) or die ("Error Execute [".$strsql."]");
-					$ResultFR_NOT = odbc_fetch_array($objExec) ;    //เอาค่าที่เอ็กซ์คิวเก็บไว้เป็น Array
-					$ResultFR_NOTfunctionVersion= $ResultFR_NOT['functionversion'];
-					$ResultFR_NOTfunctionId= $ResultFR_NOT['functionId'];
-						//echo $ResultFR_NOTfunctionVersion;
-					
-					//หา TC ที่สัมพันธ์กับ FR ข้างบน จาก RTM
-					$strsql = "SELECT a.testCaseId,b.testCaseNo,b.testCaseDescription from M_RTM_VERSION a,M_TESTCASE_HEADER b
-					where a.testCaseId = b.testCaseId
-					and a.testCaseversion = b.testcaseVersion
-					and a.projectId = b.projectId
-					and a.activeflag = '1'
-					and a.projectId = '$projectId' 	
-					AND a.functionVersion = '$ResultFR_NOTfunctionVersion'
-					AND a.functionId = '$ResultFR_NOTfunctionId' "	;		
-	//echo $strsql;
-					$objExec = odbc_exec($objConnect, $strsql) or die ("Error Execute [".$strsql."]");
-					$ResultTC_NOT = odbc_fetch_array($objExec);
-	
-					$ResultTC_NOTtestCaseNo = $ResultTC_NOT['testCaseNo'];
-					$ResultTC_NOTtestCaseId = $ResultTC_NOT['testCaseId'];
-					//echo $ResultTC_NOT['testCaseNo'];
-					//echo strlen($ResultTC_NOT['testCaseId']);  //นับความยาวข้อมูล
-					$changeType[$num_row] = rtrim($changeType[$num_row]);  //ตัดช่องว่างทางด้านขวาออก
-	
-					//แก้ไข TCใหม่ เพิ่ม
-					//ส่งค่า TC ที่ปรับปรุงไปยัง json
-						//HEADER
-						$strsql = " select max(testCaseNo) AS Max_TCNO from M_TESTCASE_HEADER ";
-						$objExec = odbc_exec($objConnect, $strsql) or die ("Error Execute [".$strsql."]");
-						$Max_TCNO  = odbc_fetch_array($objExec);
-	//echo substr($Max_TCNO['Max_TCNO'],7,7)+1 ;
-						$TCNO = substr($Max_TCNO['Max_TCNO'],7,7)+1;
-						//echo $TCNO ;
-						$returnData['testCaseNo'] = substr($ResultTC_NOTtestCaseNo,0,7).$TCNO ;
-						//echo $returnData['testCaseNo'];
-						$returnData['ChangeType'] = 'add';
-						$returnData['testcaseVersion'] = 1;
-						$returnData['testCaseDescription'] = rtrim($ResultTC_NOT['testCaseDescription']);
-						$returnData['expectedResult'] = 'Valid';
-						//echo $returnData['testcaseVersion'];
-
-						
-						//DETAIL  CHANGE DATANAME
-						$returnData['refdataName'] = $data['changeRequestInfo[inputs]['.$num_row.'][dataName]'];
-
-					//echo $ResultFR['dataType'];
-						//DETAIL  testdata						
-						if((rtrim($dataType[$num_row]) == 'int') or (rtrim($dataType[$num_row]) == 'INT')){
-							$returnData['testData'] = randInt($min[$num_row],$max[$num_row]);
-						}
-						if((rtrim($dataType[$num_row]) == 'char') || (rtrim($dataType[$num_row]) == 'CHAR')
-						||(rtrim($dataType[$num_row]) == 'varchar') || (rtrim($dataType[$num_row]) == 'VARCHAR')){
-							$returnData['testData'] = randChar($dataLength[$num_row]);
-							//echo $returnData['testData'];
-						}												
-			}
-			else if($changeType[$num_row] == 'delete'){
-				//หา FR version ของ FR ที่เปลี่ยนแปลง
-				$strsql = "SELECT * FROM M_FN_REQ_HEADER
-						where functionNo = '$functionNo'
-						and functionVersion = '$functionVersion' 
-						and projectId = '$projectId' 
-						and activeflag = '1'
-						";					
-				$objExec = odbc_exec($objConnect, $strsql) or die ("Error Execute [".$strsql."]");
-				$ResultFR_NOT = odbc_fetch_array($objExec) ;    //เอาค่าที่เอ็กซ์คิวเก็บไว้เป็น Array
-				$ResultFR_NOTfunctionVersion= $ResultFR_NOT['functionversion'];
-				$ResultFR_NOTfunctionId= $ResultFR_NOT['functionId'];
-					//echo $ResultFR_NOTfunctionVersion;
-				
-				//หา TC ที่สัมพันธ์กับ FR ข้างบน จาก RTM
-				$strsql = "SELECT a.testCaseId,b.testCaseNo,b.testCaseDescription from M_RTM_VERSION a,M_TESTCASE_HEADER b
-				where a.testCaseId = b.testCaseId
-				and a.testCaseversion = b.testcaseVersion
-				and a.projectId = b.projectId
-				and a.activeflag = '1'
-				and a.projectId = '$projectId' 	
-				AND a.functionVersion = '$ResultFR_NOTfunctionVersion'
-				AND a.functionId = '$ResultFR_NOTfunctionId' "	;		
-	//echo $strsql;
-				$objExec = odbc_exec($objConnect, $strsql) or die ("Error Execute [".$strsql."]");
-				$ResultTC_NOT = odbc_fetch_array($objExec);
-
-				$ResultTC_NOTtestCaseNo = $ResultTC_NOT['testCaseNo'];
-				$ResultTC_NOTtestCaseId = $ResultTC_NOT['testCaseId'];
-				//echo $ResultTC_NOT['testCaseNo'];
-				//echo strlen($ResultTC_NOT['testCaseId']);  //นับความยาวข้อมูล
-				$changeType[$num_row] = rtrim($changeType[$num_row]);  //ตัดช่องว่างทางด้านขวาออก
-
-				//แก้ไข TCใหม่ เพิ่ม
-				//ส่งค่า TC ที่ปรับปรุงไปยัง json
-					//HEADER
-					$strsql = "SELECT a.testCaseId,a.testcaseVersion,a.typeData,a.refdataId,a.refdataName,a.testData,
-					b.testCaseDescription,b.expectedResult
-					FROM M_TESTCASE_DETAIL a,M_TESTCASE_HEADER b
-					WHERE a.testCaseNo = '$ResultTC_NOTtestCaseNo'
-					AND a.testcaseVersion = '$ResultFR_NOTfunctionVersion'
-					AND a.activeflag = '1' 
-					AND b.activeflag = '1'
-					AND a.testCaseNo = b.testCaseNo
-					AND a.testcaseVersion = b.testcaseVersion "	;	
-			
-					//echo $strsql;
-					$objExec = odbc_exec($objConnect, $strsql) or die ("Error Execute [".$strsql."]");
-					$x=0;
-					while($ImpactTC_NOT = odbc_fetch_array($objExec)){
-						$ImpactTC_NOT['typeData'][$x];
-						$ImpactTC_NOT['refdataId'][$x];
-						$ImpactTC_NOT['testData'][$x];
-						$ImpactTC_NOT['refdataName'][$x];
-echo $ImpactTC_NOT['refdataName'][$x];
-						$x++;
-					}
-										
-					$strsql = " select max(testCaseNo) AS Max_TCNO from M_TESTCASE_HEADER ";
-					$objExec = odbc_exec($objConnect, $strsql) or die ("Error Execute [".$strsql."]");
-					$Max_TCNO  = odbc_fetch_array($objExec);
-	//echo substr($Max_TCNO['Max_TCNO'],7,7)+1 ;
-					$TCNO = substr($Max_TCNO['Max_TCNO'],7,7)+1;
-					//echo $TCNO ;
-					$returnData['testCaseNo'] = substr($ResultTC_NOTtestCaseNo,0,7).$TCNO ;
-					//echo $returnData['testCaseNo'];
-					$returnData['ChangeType'] = 'add';
-					$returnData['testcaseVersion'] = 1;
-					$returnData['testCaseDescription'] = rtrim($ResultTC_NOT['testCaseDescription']);
-					$returnData['expectedResult'] = 'Valid';
-					//echo $returnData['testcaseVersion'];
-					
-					//DETAIL  CHANGE DATANAME
-					$returnData['refdataName'] = $data['changeRequestInfo[inputs]['.$num_row.'][dataName]'];
-
-				//echo $ResultFR['dataType'];
-					//DETAIL  testdata						
-					if((rtrim($dataType[$num_row]) == 'int') or (rtrim($dataType[$num_row]) == 'INT')){
-						$returnData['testData'] = randInt($min[$num_row],$max[$num_row]);
-					}
-					if((rtrim($dataType[$num_row]) == 'char') || (rtrim($dataType[$num_row]) == 'CHAR')
-					||(rtrim($dataType[$num_row]) == 'varchar') || (rtrim($dataType[$num_row]) == 'VARCHAR')){
-						$returnData['testData'] = randChar($dataLength[$num_row]);
-						//echo $returnData['testData'];
-					}		
-			}
-		//echo $returnData['testCaseVersion'];
+	//while($num_row <= $row)
+	/*
+	while(($ResultNumChange = odbc_fetch_array($objExec)) and ($num_row <= $row)){
+		echo $ResultNumChange['CType'];
+		echo $num_row ;
 		$num_row++;
-		response($returnData);
+	}*/
+	if (null!=$row)
+	{
+		while(($ResultNumChange = odbc_fetch_array($objExec)) and ($num_row <= $row)){
+			//echo $ResultNumChange['CType'];
+			//echo $num_row ;
+			if($ResultNumChange['CType'] == 'A'){
+				//echo 'A';
+				$createUser = $ResultNumChange['createUser'];
+
+				$strsql1  = searchFRMAXFuncNo();
+				$objExec1  = odbc_exec($objConnect, $strsql1) or die ("Error Execute [".$strsql."]");
+				$Max_FRNO  = odbc_fetch_array($objExec1);
+				//echo $Max_FRNO['Max_FRNO'];
+				//echo substr($Max_FRNO['Max_FRNO'],6,7)+1 ;
+				$New_FRNO = substr($Max_FRNO['Max_FRNO'],0,7).(substr($Max_FRNO['Max_FRNO'],7,7)+1);
+				$New_functionversion = '1';
+
+				//Insert New FR_HEADER
+				$strsql1 = InsertNewFR_HEADER($functionDescription,$New_functionversion,$New_FRNO,$projectId,$username);
+				$objExec1  = odbc_exec($objConnect, $strsql1) or die ("Error Execute [".$strsql1."]");
+				odbc_free_result($objExec1);
+				//UPDATE วันที่ FR เก่า
+				$strsql1 = UpdateFR_HEADER($functionVersion,$functionNo,$projectId,$username);
+				$objExec1  = odbc_exec($objConnect, $strsql1) or die ("Error Execute [".$strsql1."]");
+
+				$strsql1 = searchFR_NEW($New_FRNO,$functionVersion,$projectId);
+				$objExec1  = odbc_exec($objConnect, $strsql1) or die ("Error Execute [".$strsql1."]");
+				$New_ResultFR = odbc_fetch_array($objExec1);
+				$New_functionId = $New_ResultFR['functionId'];
+
+				//Insert New FR_DETAIL
+				$strsql1 = InsertFR_DETAIL($functionNo,$functionVersion,$New_functionId,$New_functionversion,$New_FRNO,$projectId,$username);
+				$objExec1  = odbc_exec($objConnect, $strsql1) or die ("Error Execute [".$strsql1."]");
+				odbc_free_result($objExec1);
+				//INSERT FR ใหม่ ด้วย filed ใหม่ที่ Add
+				$strsql1 = InsertNewFR_DETAIL($ResultNumChange,$New_functionId,$New_functionversion,$New_FRNO,$projectId,$username);
+				$objExec1  = odbc_exec($objConnect, $strsql1) or die ("Error Execute [".$strsql1."]");
+				odbc_free_result($objExec1);
+				//UPDATE วันที่ FR เก่า
+				$strsql1 = UpdateFR_DETAIL($functionVersion,$functionNo,$projectId,$username);
+				$objExec1  = odbc_exec($objConnect, $strsql1) or die ("Error Execute [".$strsql1."]");
+				odbc_free_result($objExec1);
+
+				$returnData['$functionVersion'][$num_row] = $functionVersion;
+				$returnData['$functionNo'][$num_row] = $functionNo;
+				$returnData['$dataName'][$num_row] = $ResultNumChange['dataName'];
+				$returnData['$changeType'][$num_row] = $ResultNumChange['changeType'];
+				$returnData['$tableName'][$num_row] = $ResultNumChange['tableName'];
+				$returnData['$columnName'][$num_row] = $ResultNumChange['columnName'];
+
+				//echo $ResultNumChange['typeData'];
+				if ($ResultNumChange['typeData'] == 1)
+				{
+					$returnData['$typeData'][$num_row] = 'Input';
+				}else{
+					$returnData['$typeData'][$num_row] = 'Output';
+				}
+				//echo $returnData['$dataName'][$num_row];
+				//echo $num_row;
+
+				//Test Case
+
+			
+			}else if($ResultNumChange['CType'] == 'B'){	//รายการ change =edit
+				//echo 'B';
+				//UPDATE FR เฉพาะ field
+				if (null !=$New_functionId){
+					$strsql1 = UpdateFRField_DETAIL($ResultNumChange,$New_functionversion,$New_FRNO,$projectId,$username);
+					$objExec1  = odbc_exec($objConnect, $strsql1) or die ("Error Execute [".$strsql1."]");
+					odbc_free_result($objExec1);
+
+					//หา Impact จากการ edit กับ FR อื่นๆ
+					$strsql1 = searchFRImpact($ResultNumChange,$functionId,$functionVersion,$projectId);
+					$objExec1 = odbc_exec($objConnect, $strsql1) or die ("Error Execute [".$strsql."]");	
+					$row_FR = odbc_num_rows($objExec1);
+
+					if ($row_FR != 0){
+						//UPDATE วันที่ FR DETAIL เก่า ที่impact จากการ edit นี้
+						$Result_FRDETAIL = odbc_fetch_array($objExec1);
+						$strsql1 = UpdateFRField_DETAIL($ResultNumChange,$Result_FRDETAIL['functionVersion'],$Result_FRDETAIL['functionNo'],$projectId,$username);
+						$objExec1  = odbc_exec($objConnect, $strsql1) or die ("Error Execute [".$strsql1."]");
+						odbc_free_result($objExec1);		
+
+						//UPDATE วันที่ FR HEADER เก่าที่impact จากการ edit นี้
+						$strsql1 = UpdateFR_HEADER($Result_FRDETAIL['functionVersion'],$Result_FRDETAIL['functionNo'],$projectId,$username);
+						$objExec1  = odbc_exec($objConnect, $strsql1) or die ("Error Execute [".$strsql1."]");
+						odbc_free_result($objExec1);
+
+						$returnData['$functionVersion'][$num_row] = $Result_FRDETAIL['functionVersion'];
+						$returnData['$functionNo'][$num_row] = $Result_FRDETAIL['functionNo'];
+						$returnData['$dataName'][$num_row] = $ResultNumChange['dataName'];
+						$returnData['$changeType'][$num_row] = $ResultNumChange['changeType'];
+						$returnData['$tableName'][$num_row] = $ResultNumChange['tableName'];
+						$returnData['$columnName'][$num_row] = $ResultNumChange['columnName'];
+		
+						//echo $ResultNumChange['typeData'];
+						if ($ResultNumChange['typeData'] == 1)
+						{
+							$returnData['$typeData'][$num_row] = 'Input';
+						}else{
+							$returnData['$typeData'][$num_row] = 'Output';
+						}	
+						//echo $returnData['$dataName'][$num_row];
+						//echo $num_row;
+					
+					}
+					$returnData['$dataName'][$num_row] = $ResultNumChange['dataName'];
+					$returnData['$changeType'][$num_row] = $ResultNumChange['changeType'];
+					$returnData['$tableName'][$num_row] = $ResultNumChange['tableName'];
+					$returnData['$columnName'][$num_row] = $ResultNumChange['columnName'];
+	
+					//echo $ResultNumChange['typeData'];
+					if ($ResultNumChange['typeData'] == 1)
+					{
+						$returnData['$typeData'][$num_row] = 'Input';
+					}else{
+						$returnData['$typeData'][$num_row] = 'Output';
+					}					
+					//echo $returnData['$dataName'][$num_row];
+					//echo $num_row;
+				}
+				else{
+					if ($num_row == '1'){ // ทำเฉพาะรายการ EDIT รายการแรก รายการต่อไป update เฉพาะ fleid
+						$strsql1  = searchFRMAXFuncVer($functionNo);
+						$objExec1  = odbc_exec($objConnect, $strsql1) or die ("Error Execute [".$strsql."]");
+						$Max_FRVer  = odbc_fetch_array($objExec1);
+						//echo $Max_FRNO['Max_FRNO'];
+						//echo substr($Max_FRNO['Max_FRNO'],6,7)+1 ;
+						$Max_FRVer = $Max_FRVer+1;
+						
+						//Insert New FR_HEADER
+						$strsql1 = InsertNewFR_HEADER($functionDescription,$Max_FRVer,$functionNo,$projectId,$username);
+						$objExec1  = odbc_exec($objConnect, $strsql1) or die ("Error Execute [".$strsql1."]");
+						odbc_free_result($objExec1);
+						//UPDATE วันที่ FR เก่า
+						$strsql1 = UpdateFR_HEADER($functionVersion,$functionNo,$projectId,$username);
+						$objExec1  = odbc_exec($objConnect, $strsql1) or die ("Error Execute [".$strsql1."]");
+						odbc_free_result($objExec1);
+
+						//Insert New FR_DETAIL
+						$strsql1 = InsertFR_DETAIL($functionNo,$functionVersion,$New_functionId,$Max_FRVer,$functionNo,$projectId,$username);
+						$objExec1  = odbc_exec($objConnect, $strsql1) or die ("Error Execute [".$strsql1."]");
+						odbc_free_result($objExec1);
+					}
+					//UPDATE วันที่ FR เก่า
+					$strsql1 = UpdateFRField_DETAIL($ResultNumChange,$Max_FRVer,$functionNo,$projectId,$username);
+					$objExec1  = odbc_exec($objConnect, $strsql1) or die ("Error Execute [".$strsql1."]");
+					odbc_free_result($objExec1);
+				}
+			}else if($ResultNumChange['CType'] == 'C'){	//รายการ change = delete
+				//echo "C";
+				if (null !=$New_functionId){
+					$strsql1 = DeleteFRField_DETAIL($ResultNumChange,$New_functionversion,$New_FRNO,$projectId,$username);
+					$objExec1  = odbc_exec($objConnect, $strsql1) or die ("Error Execute [".$strsql1."]");
+					odbc_free_result($objExec1);
+
+					//หา Impact จากการ delete กับ FR อื่นๆ
+					$strsql1 = searchFRImpact($ResultNumChange,$functionId,$functionVersion,$projectId);
+					$objExec1 = odbc_exec($objConnect, $strsql1) or die ("Error Execute [".$strsql."]");	
+					$row_FR = odbc_num_rows($objExec1);
+					if ($row_FR != 0){
+						//UPDATE วันที่ FR DETAIL เก่า ที่impact จากการ delete นี้
+						$Delete_FRDETAIL = odbc_fetch_array($objExec1);
+
+						$strsql1  = searchFRMAXFuncNo();
+						$objExec1  = odbc_exec($objConnect, $strsql1) or die ("Error Execute [".$strsql."]");
+						$Max_FRNO  = odbc_fetch_array($objExec1);
+						//echo $Max_FRNO['Max_FRNO'];
+						//echo substr($Max_FRNO['Max_FRNO'],6,7)+1 ;
+						$New_FRNO = substr($Max_FRNO['Max_FRNO'],0,7).(substr($Max_FRNO['Max_FRNO'],7,7)+1);
+						$New_functionversion = '1';
+						$delete_FRVer = $Delete_FRDETAIL['functionVersion'];
+
+						//Insert New FR_HEADER
+						$strsql1 = InsertNewFR_HEADER($functionDescription,$New_functionversion,$New_FRNO,$projectId,$username);
+						$objExec1  = odbc_exec($objConnect, $strsql1) or die ("Error Execute [".$strsql1."]");
+						odbc_free_result($objExec1);
+						//UPDATE วันที่ FR เก่า
+						$strsql1 = UpdateFR_HEADER($delete_FRVer,$functionNo,$projectId,$username);
+						$objExec1  = odbc_exec($objConnect, $strsql1) or die ("Error Execute [".$strsql1."]");
+						odbc_free_result($objExec1);	
+
+						$strsql1 = searchFR_NEW($New_FRNO,$functionVersion,$projectId);
+						$objExec1  = odbc_exec($objConnect, $strsql1) or die ("Error Execute [".$strsql1."]");
+						$New_ResultFR = odbc_fetch_array($objExec1);
+						$New_functionId = $New_ResultFR['functionId'];
+		
+						//Insert New FR_DETAIL
+						$strsql1 = InsertFR_DETAIL($functionNo,$functionVersion,$New_functionId,$New_functionversion,$New_FRNO,$projectId,$username);
+						$objExec1  = odbc_exec($objConnect, $strsql1) or die ("Error Execute [".$strsql1."]");
+						odbc_free_result($objExec1);
+						//Delete FR DETAIL ด้วย filed ใหม่ที่ delete
+						$strsql1 = DeleteFRField_DETAIL($ResultNumChange,$New_functionId,$New_functionversion,$New_FRNO,$projectId,$username);
+						$objExec1  = odbc_exec($objConnect, $strsql1) or die ("Error Execute [".$strsql1."]");
+						odbc_free_result($objExec1);
+						//UPDATE วันที่ FR เก่า activeflag ='0'
+						$strsql1 = UpdateFR_DETAIL($functionVersion,$functionNo,$projectId,$username);
+						$objExec1  = odbc_exec($objConnect, $strsql1) or die ("Error Execute [".$strsql1."]");
+						odbc_free_result($objExec1);
+
+						$returnData['$functionVersion'][$num_row] = $Delete_FRDETAIL['functionVersion'];
+						$returnData['$functionNo'][$num_row] = $Delete_FRDETAIL['functionNo'];
+						$returnData['$dataName'][$num_row] = $ResultNumChange['dataName'];
+						$returnData['$changeType'][$num_row] = $ResultNumChange['changeType'];
+						$returnData['$tableName'][$num_row] = $ResultNumChange['tableName'];
+						$returnData['$columnName'][$num_row] = $ResultNumChange['columnName'];
+		
+						//echo $ResultNumChange['typeData'];
+						if ($ResultNumChange['typeData'] == 1)
+						{
+							$returnData['$typeData'][$num_row] = 'Input';
+						}else{
+							$returnData['$typeData'][$num_row] = 'Output';
+						}				
+						//echo $returnData['$dataName'][$num_row];
+						//echo $num_row;
+					}
+					$returnData['$dataName'][$num_row] = $ResultNumChange['dataName'];
+					$returnData['$changeType'][$num_row] = $ResultNumChange['changeType'];
+					$returnData['$tableName'][$num_row] = $ResultNumChange['tableName'];
+					$returnData['$columnName'][$num_row] = $ResultNumChange['columnName'];
+	
+					//echo $ResultNumChange['typeData'];
+					if ($ResultNumChange['typeData'] == 1)
+					{
+						$returnData['$typeData'][$num_row] = 'Input';
+					}else{
+						$returnData['$typeData'][$num_row] = 'Output';
+					}			
+					//echo $returnData['$dataName'][$num_row];
+						//echo $num_row;
+				}
+			}
+			$num_row++;
+		}
 	}
-}
-else
-{
-	echo "Database Connect Failed.";
-}
+		//echo $num_row;
 
-odbc_close($objConnect);
-/*
-if (isset($_GET['projectInfo']) && $_GET['projectInfo']!="") {
+	//$returnData = 'HH';
+	response($returnData,$row);
 
-            $strsql = "SELECT * FROM M_PROJECT where projectId = '$projectInfo' ";
-            echo $strsql;
-            $objQuery = $this->db->query($strsql);
-            if(!$objQuery){
-                echo "<script language='javascript'>alert('Code Correct.');</script>";
-            }
-            return $objQuery->result_array();	
-}else{
-            response(NULL, NULL, 400,"Invalid Request");
-}*/
-//random ตัวเลข int
-function randInt($min,$max){
-	//DETAIL  edit testdata
-	if(isset($min) or $min == NULL ){
-		$min = 0;
-	}	
-	return rand($min,$max);
-}
-//ramdom char
-function randChar($length) {
-	$chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-	$value = '';
-	for ( $i = 0; $i < $length; $i++ )
-	   $value .= substr($chars, mt_rand(0, strlen($chars) - 1), 1);
-	return $value;
- } 
 //function response($order_id,$amount,$response_code,$response_desc,$retuneData){
-function response($returnData){
+function response($returnData,$row){
 	/*$response['order_id'] = $order_id;
 	$response['amount'] = $amount;
 	$response['response_code'] = $response_code;
 	$response['response_desc'] = $response_desc;
 	$response['order_id'] = "1";
 	$response['amount'] = "2";
-	$response['response_code'] = "3";*/
+	$response['response_code'] = "3";
 	//TESTCASE
 	$response['testCaseNo'] = $returnData['testCaseNo'];
 
@@ -469,14 +305,57 @@ function response($returnData){
 		$response['expectedResult'] = $returnData['expectedResult'];		
 
 		$response['testData'] = $returnData['testData'];	
-		$response['refdataName'] = $returnData['refdataName'];	
+		$response['refdataName'] = $returnData['refdataName'];	*/
 	
 	//echo $returnData['testCaseNo'];
 	//echo $returnData['ChangeType'];
-	//echo $returnData['testcaseVersion'];	
+	//echo $returnData['testcaseVersion'];
 
-	$json_response = json_encode($response);
-	echo "AffectedTestCase"."<br/>";
-	echo $json_response."<br/>";
+	
+	$num_row = 1;
+	$functionNo = $returnData['$functionNo'][$num_row];
+	$functionVersion = $returnData['$functionVersion'][$num_row];
+	$Typedata = $returnData['$typeData'][$num_row];
+	//echo $row;
+	/*
+	$response = " {'AffectedRequirement': {"."<br/>";
+	$response .= " '$functionNo' : {("."<br/>";
+	$response .= " 'functionVersion': '$functionVersion',"."<br/>";
+	$response .= " '$Typedata': { "."<br/>";*/
+
+		
+		while($row>=$num_row){
+			echo $num_row;
+			
+			if (!isset($returnData['$functionVersion'][$num_row]) ){
+				$returnData['$functionVersion'][$num_row] = $functionVersion;
+			}
+			$Typedata = $returnData['$typeData'][$num_row];
+			$dataName = $returnData['$dataName'][$num_row];
+			$response = array(
+						"AffectedRequirement"=>array(
+							array(
+								"$functionNo"=>array(
+								"functionVersion"=>$returnData['$functionVersion'][$num_row],
+								"$Typedata"=>array(
+									"$dataName"=>array(
+										"refTableName"=>$returnData['$tableName'][$num_row],
+										"refColumnName"=>$returnData['$columnName'][$num_row],
+										"changeType"=>$returnData['$changeType'][$num_row]
+										)
+									)
+								)
+							)
+						)
+					);
+			$json_response = json_encode($response,JSON_FORCE_OBJECT);
+			var_dump($json_response);
+			$num_row++;
+		}
+	//$json_response = json_encode($response);
+	//echo "AffectedRequirement"."<br/>";
+	//var_dump($json_response);
+	//echo $json_response."<br/>";
+	//return $json_response;
 }
 ?>

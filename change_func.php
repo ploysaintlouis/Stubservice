@@ -184,4 +184,11 @@ function UpdateFRField_DETAIL($ResultNumChange,$functionVersion,$functionNo,$pro
 		//echo $strsql ;
 		return $strsql ;
  } 
+ function InsertFR_IMPACT_HEADER($returnData,$projectId) {
+	
+	$strsql = "INSERT INTO M_FR_IMPACT_HEADER (projectInfo,functionNo, functionVersion, Typedata) 
+	VALUES ('$New_FRNO', '{$functionDescription}', {$projectId}, '$currentDateTime', '{$username}', '$currentDateTime', '{$username}','$New_functionversion','1')";
+	//echo $strsql ;
+	return $strsql ;
+} 
 ?>
