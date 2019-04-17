@@ -13,7 +13,7 @@ function searchFRId($functionNo,$functionVersion,$projectId) {
  } 
 
  function searchNumChange($functionId,$functionVersion) {
-	$strsql = "SELECT case changeType WHEN 'add' THEN 'A' WHEN 'edit' THEN 'B' WHEN 'delete' THEN 'C' END AS CType,*
+	$strsql = "SELECT case changeType WHEN 'add' THEN 'A' WHEN 'edit' THEN 'C' WHEN 'delete' THEN 'B' END AS CType,*
 	   FROM T_TEMP_CHANGE_LIST
 		where functionVersion = '$functionVersion' 
 		and functionId = '$functionId'
@@ -44,7 +44,6 @@ function searchFRId($functionNo,$functionVersion,$projectId) {
 
  	$strsql = " SELECT max(functionNo) AS Max_FRNO 
 	 			FROM M_FN_REQ_HEADER ";
-
 	//echo $strsql;
 	return $strsql;
 } 
@@ -171,8 +170,9 @@ function UpdateFRField_DETAIL($ResultNumChange,$functionVersion,$functionNo,$pro
 			and projectid = '$projectId' ";
 		//echo $strsql ;
 		return $strsql ;
- }  
- function DeleteFRField_DETAIL($ResultNumChange,$functionVersion,$functionNo,$projectId,$username) {
+ }  				
+
+ function DeleteFRField_DETAIL($ResultNumChange,$New_functionId,$functionVersion,$functionNo,$projectId,$username) {
 	$currentDateTime = date('Y-m-d H:i:s');
 					
 	$strsql = "DELETE FROM M_FN_REQ_DETAIL

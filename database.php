@@ -70,8 +70,8 @@ defined('BASEPATH');
 | The $query_builder variables lets you determine whether or not to load
 | the query builder class.
 */
-//$dsn	= 'Driver={SQL Server Native Client 11.0};server=107-NANNAPHAT\SQL2018;Database=test';
-$dsn=	 'Driver={SQL Server Native Client 11.0};server=DESKTOP-71LOP0E\SQLEXPRESS;Database=test';
+$dsn	= 'Driver={SQL Server Native Client 11.0};server=107-NANNAPHAT\SQL2018;Database=test';
+//$dsn=	 'Driver={SQL Server Native Client 11.0};server=DESKTOP-71LOP0E\SQLEXPRESS;Database=test';
 $username = 'sa';
 $password = 'password';	
 
