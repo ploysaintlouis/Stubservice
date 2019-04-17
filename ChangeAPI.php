@@ -13,6 +13,7 @@ $testCaseversion = $data['RTM[testCaseversion]'];
 
 require_once('database.php');
 include('change_func.php');
+include('change_RTM.php');
 include('change_tc.php');
 include('running.php');
 include('random.php');
@@ -55,6 +56,7 @@ include('random.php');
 				$New_FRNO = substr($Max_FRNO['Max_FRNO'],0,7).(substr($Max_FRNO['Max_FRNO'],7,7)+1);
 				$New_functionversion = '1';
 
+				//###1.FR #######
 				//Insert New FR_HEADER
 				$strsql1 = InsertNewFR_HEADER($functionDescription,$New_functionversion,$New_FRNO,$projectId,$username);
 				$objExec1  = odbc_exec($objConnect, $strsql1) or die ("Error Execute [".$strsql1."]");
@@ -80,8 +82,8 @@ include('random.php');
 				$strsql1 = UpdateFR_DETAIL($functionVersion,$functionNo,$projectId,$username);
 				$objExec1  = odbc_exec($objConnect, $strsql1) or die ("Error Execute [".$strsql1."]");
 				odbc_free_result($objExec1);
-/*
-				//######TEST CASE#########
+
+				//######2.TEST CASE#########
 				$strsql1  = searchFRMAXTCNo();
 				$objExec1  = odbc_exec($objConnect, $strsql1) or die ("Error Execute [".$strsql."]");
 				$Max_TCNO  = odbc_fetch_array($objExec1);
@@ -89,15 +91,54 @@ include('random.php');
 				//echo substr($Max_FRNO['Max_TCNO'],6,7)+1 ;
 				$New_TCNO = substr($Max_TCNO['Max_TCNO'],0,7).(substr($Max_TCNO['Max_TCNO'],7,7)+1);
 
+				$strsql1 = searchRTM($functionId,$functionVersion,$projectId);
+				$objExec1  = odbc_exec($objConnect, $strsql1) or die ("Error Execute [".$strsql1."]");
+				$TC_Result  = odbc_fetch_array($objExec1);
+				$testcaseVersion = $TC_Result['testCaseversion'];
+				$testCaseNo = $TC_Result['testCaseNo'];
+				$TC_expectedResult = $TC_Result['expectedResult'];
+				$testCaseId = $TC_Result['testCaseId'];
+				$testCaseDescription = $TC_Result['testCaseDescription']; 
+
 				//Insert New TC_HEADER
-				$strsql1 = InsertNewTC_HEADER($functionDescription,$New_functionversion,$New_FRNO,$projectId,$username);
+				$strsql1 = InsertNewTC_HEADER($testCaseDescription,1,$New_TCNO,$projectId,$username);
 				$objExec1  = odbc_exec($objConnect, $strsql1) or die ("Error Execute [".$strsql1."]");
 				odbc_free_result($objExec1);
-				//UPDATE วันที่ TC เก่า
-				$strsql1 = UpdateTC_HEADER($functionVersion,$functionNo,$projectId,$username);
+				//UPDATE วันที่ TC_HEADER เก่า
+				$strsql1 = UpdateTC_HEADER($testcaseVersion,$testCaseNo,$projectId,$username);
 				$objExec1  = odbc_exec($objConnect, $strsql1) or die ("Error Execute [".$strsql1."]");
-*/
-				if ($ResultNumChange['$typeData'] == 1)
+
+				$strsql1 = searchTC_NEW($New_TCNO,1,$projectId);
+				$objExec1  = odbc_exec($objConnect, $strsql1) or die ("Error Execute [".$strsql1."]");
+				$New_ResultTC = odbc_fetch_array($objExec1);
+				$New_testcaseId = $New_ResultTC['testcaseId'];
+				$New_testcaseVersion = $New_ResultTC['testcaseVersion'];
+
+				//Insert New TC_DETAIL
+				$strsql1 = InsertTC_DETAIL($testCaseNo,$testcaseVersion,$New_testcaseId,$New_testcaseVersion,$New_TCNO,$projectId,$username);
+				$objExec1  = odbc_exec($objConnect, $strsql1) or die ("Error Execute [".$strsql1."]");
+				odbc_free_result($objExec1);
+				//INSERT FR ใหม่ ด้วย filed ใหม่ที่ Add
+				if(($ResultNumChange['dataType'] == 'int') || ($ResultNumChange['dataType'] == 'INT') ){
+					$new_testdata = randInt(,);
+				}
+				if (($ResultNumChange['dataType'] == 'decimal') || ($ResultNumChange['dataType'] == 'DECIMAL')
+				|| ($ResultNumChange['dataType'] == 'float') || ($ResultNumChange['dataType'] == 'FLOAT')){
+
+				}
+				if (($ResultNumChange['dataType'] == 'char') || ($ResultNumChange['dataType'] == 'CHAR')
+				|| ($ResultNumChange['dataType'] == 'varchar') || ($ResultNumChange['dataType'] == 'VARCHAR')){
+					
+				}
+				$strsql1 = InsertNewTC_DETAIL($ResultNumChange,$New_testcaseId,$New_testcaseVersion,$New_TCNO,$projectId,$username);
+				$objExec1  = odbc_exec($objConnect, $strsql1) or die ("Error Execute [".$strsql1."]");
+				odbc_free_result($objExec1);
+				//UPDATE วันที่ FR เก่า
+				$strsql1 = UpdateFR_DETAIL($testcaseVersion,$testCaseNo,$projectId,$username);
+				$objExec1  = odbc_exec($objConnect, $strsql1) or die ("Error Execute [".$strsql1."]");
+				odbc_free_result($objExec1);
+
+				if ($ResultNumChange['typeData'] == 1)
 				{
 					$x[$num_row]['typeData'] = 'Input';
 				}else{

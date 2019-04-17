@@ -173,7 +173,6 @@ function UpdateFRField_DETAIL($ResultNumChange,$functionVersion,$functionNo,$pro
  }  				
 
  function DeleteFRField_DETAIL($ResultNumChange,$New_functionId,$functionVersion,$functionNo,$projectId,$username) {
-	$currentDateTime = date('Y-m-d H:i:s');
 					
 	$strsql = "DELETE FROM M_FN_REQ_DETAIL
 			WHERE functionNo = '$functionNo' 
