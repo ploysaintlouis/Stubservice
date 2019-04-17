@@ -176,8 +176,8 @@ function UpdateFRField_DETAIL($ResultNumChange,$functionVersion,$functionNo,$pro
 	$currentDateTime = date('Y-m-d H:i:s');
 					
 	$strsql = "DELETE FROM M_FN_REQ_DETAIL
-			WHERE functionVersion = '$functionVersion' 
-			AND functionNo = '$functionNo'
+			WHERE functionNo = '$functionNo' 
+			AND functionVersion = '$functionVersion'
 			and activeflag = '1' 
 			AND dataName = '$ResultNumChange[dataName]'
 			and projectid = '$projectId' ";

@@ -80,7 +80,7 @@ include('random.php');
 				$strsql1 = UpdateFR_DETAIL($functionVersion,$functionNo,$projectId,$username);
 				$objExec1  = odbc_exec($objConnect, $strsql1) or die ("Error Execute [".$strsql1."]");
 				odbc_free_result($objExec1);
-
+/*
 				//######TEST CASE#########
 				$strsql1  = searchFRMAXTCNo();
 				$objExec1  = odbc_exec($objConnect, $strsql1) or die ("Error Execute [".$strsql."]");
@@ -96,7 +96,7 @@ include('random.php');
 				//UPDATE วันที่ TC เก่า
 				$strsql1 = UpdateTC_HEADER($functionVersion,$functionNo,$projectId,$username);
 				$objExec1  = odbc_exec($objConnect, $strsql1) or die ("Error Execute [".$strsql1."]");
-
+*/
 				if ($ResultNumChange['$typeData'] == 1)
 				{
 					$x[$num_row]['typeData'] = 'Input';
@@ -122,10 +122,10 @@ include('random.php');
 			}else if($ResultNumChange['CType'] == 'B'){	//รายการ change = delete
 				//echo "C";
 				if (isset($New_functionId)){
-					$strsql1 = DeleteFRField_DETAIL($ResultNumChange,$New_functionversion,$New_FRNO,$projectId,$username);
+					$strsql1 = DeleteFRField_DETAIL($ResultNumChange,$New_functionId,$New_functionversion,$New_FRNO,$projectId,$username);
 					$objExec1  = odbc_exec($objConnect, $strsql1) or die ("Error Execute [".$strsql1."]");
 					odbc_free_result($objExec1);
-					if ($ResultNumChange['$typeData'] == 1)
+					if ($ResultNumChange['typeData'] == 1)
 					{
 						$x[$num_row]['typeData'] = 'Input';
 					}else{
