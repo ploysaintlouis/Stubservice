@@ -11,7 +11,17 @@ function searchFRId($functionNo,$functionVersion,$projectId) {
 			//echo $strsql ;
 		return $strsql ;
  } 
-
+ function searchFRdataId($ResultNumChange,$functionId,$functionVersion,$projectId) {
+	$strsql = "SELECT dataId FROM M_FN_REQ_DETAIL
+		where functionVersion = '$functionVersion' 
+		and activeflag = '1' 
+		and functionId = '$functionId'
+		AND dataName = '$ResultNumChange[dataName]'
+		and projectId = '$projectId' 
+			";
+			//echo $strsql ;
+		return $strsql ;
+ } 
  function searchNumChange($functionId,$functionVersion) {
 	$strsql = "SELECT case changeType WHEN 'add' THEN 'A' WHEN 'edit' THEN 'C' WHEN 'delete' THEN 'B' END AS CType,*
 	   FROM T_TEMP_CHANGE_LIST
@@ -40,6 +50,7 @@ function searchFRId($functionNo,$functionVersion,$projectId) {
 		//echo $strsql ;
 		return $strsql ;
  } 
+ 
  function searchFRMAXFuncNo() {
 
  	$strsql = " SELECT max(functionNo) AS Max_FRNO 

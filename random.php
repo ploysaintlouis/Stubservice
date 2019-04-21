@@ -16,5 +16,14 @@ function randChar($length) {
 	   $value .= substr($chars, mt_rand(0, strlen($chars) - 1), 1);
 	return $value;
  } 
- 
+function random_round($len){
+	$chars = "0123456789";
+	$ret_char = "";
+	$num = strlen($chars);
+	for($i = 0; $i < $len; $i++) {
+		$ret_char.= $chars[rand()%$num];
+		$ret_char.= ""; 
+	}
+	return $ret_char; 
+}
 ?>
